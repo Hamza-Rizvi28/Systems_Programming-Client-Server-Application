@@ -1,0 +1,278 @@
+/*
+	add,sub,mul,div,run,getInput(),listTokenize(),processList structure only
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <float.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <stdbool.h>
+
+#define INITIAL_SIZE 500
+#define SIZE 50
+const char* list_delimiter=";";
+int total_char_count=0;
+char *token; //global token variable
+char *list_Token;
+float result=0; //gloabl result variable
+
+struct processList {
+    char *processName;
+    int proccess_ID;
+    bool isActive;
+    __time_t startTime;
+    __time_t endTime;
+    struct processList *next;
+};
+
+char* getInput() {
+
+    char *buff;
+    int curr_size=INITIAL_SIZE;
+    buff = malloc(INITIAL_SIZE * sizeof(char));
+    char temp_buff[INITIAL_SIZE];
+    write(STDOUT_FILENO,"Enter: ",7);
+    int count=0;
+    char *EOL;
+    if (buff != NULL) {
+        do
+        {
+            count=read(STDIN_FILENO,temp_buff,INITIAL_SIZE);
+            total_char_count+=count;
+            temp_buff[count]='\0'; //concantenate karne se pehle we need to place an eol character
+            strcat(buff,temp_buff);
+            EOL= strstr(buff,";\n"); //end of line character
+            //if i reached maximize size then realloc size
+            if(total_char_count > curr_size || total_char_count == curr_size )
+            {
+                curr_size = curr_size + INITIAL_SIZE;
+                buff = realloc(buff, sizeof(char)*curr_size);
+            }
+        } while (EOL == NULL);
+
+        buff[total_char_count-1]='\0'; 
+        int len=strlen(buff);      
+        /*print the values
+        for (int i=0;i<len;i++) {
+                printf("%c",*buff++);
+        }*/
+        printf("\n");
+    }
+    else {
+        write(STDOUT_FILENO,"MEMORY ALLOCATION FAILED!\n",sizeof("MEMORY ALLOCATION FAILED!\n"));
+        exit(0);
+    }
+    return buff;
+}
+
+void list_tokenize(char buff_copy[], char* str[]) {
+
+    /*
+        Parameter 1: input as a character array
+        Parameter 2: a variable from main to store the individual lists
+    */
+    int len=strlen(buff_copy);
+    int list_Position=0;
+    list_Token = strtok(buff_copy,list_delimiter);
+    str[list_Position++]=list_Token;
+
+    while (list_Token !=NULL) {
+        list_Token=strtok(NULL,list_delimiter);
+        str[list_Position]=list_Token;
+        list_Position++;
+    }
+}
+
+float add(char *str) {
+    float sum=0;
+    float curr_digit=0;
+
+    while (token != NULL) {
+        curr_digit=atoi(token);
+        sum+=curr_digit;
+        token=strtok(NULL," ");
+    }
+    return sum;
+}
+
+float subtract(char *str) {
+    
+    float result=0;
+    float curr_digit=0;
+    curr_digit=atoi(token);
+    result=curr_digit;
+    token=strtok(NULL," ");
+
+    while (token != NULL) {
+        curr_digit=atoi(token);
+        result-=curr_digit;
+        token=strtok(NULL," ");
+    }
+    return result;
+}
+
+float divide(char *str) {
+    float result=0;
+    float curr_digit=0;
+    curr_digit=atof(token);
+    result=curr_digit;
+    token=strtok(NULL," ");
+
+    while (token != NULL) {
+        curr_digit=atoi(token);
+        result/=curr_digit;
+        token=strtok(NULL," ");
+    }
+    return result;
+}
+
+float multiply(char *str) {
+    float result=1;
+    float curr_digit=0;
+
+    while (token != NULL) {
+        curr_digit=atof(token);
+        result*=curr_digit;
+        token=strtok(NULL," ");
+    }
+    return result;
+}
+
+void run(char *str)  {
+    
+    int len= strlen(str);
+    char program[len];
+    strcpy(program,str);
+
+    //if ';'exits, remove from the token
+    if (program[len-1]==';') {
+        program[len-1]='\0';
+    }
+    int pid=fork();
+        if (pid==-1) {
+            perror("Fork failed");
+        }
+        else if (pid==0) {
+
+            pid=execlp(program,program,NULL);
+            if (pid==-1) {
+                perror("exec failed");
+                exit(2);
+            }
+        }
+}
+
+int main() {
+    /*  parent -> client
+        child -> server     */
+
+    int ret=0; //return value for error handling
+    int fd[2]; //for pipe
+    ret=pipe(fd);
+    if (ret==-1) {
+        perror("Pipe error: ");
+    }
+    int pid=fork();
+    if (pid==-1) {
+        /* ERROR */
+        perror("Client not formed");
+        exit(2);
+    }
+    else if (pid>0) {
+            
+       /*   parent -> client 
+            client sends a request 
+            writes on the pipe      */ 
+            
+            char *in;
+            char buff[50];
+            close(fd[0]); // close reading end 
+            //takes input
+            in=getInput();
+            strcpy(buff,in);
+            int len=strlen(buff);
+            //write(STDOUT_FILENO,"Parent: \n",9);
+            //write(STDOUT_FILENO,buff,len);
+
+            //len=strlen(buff);
+            //send input through pipe
+            ret=write(fd[1],buff,len); 
+            if (ret==-1) {                                          
+                perror("Input not sent!:");
+                exit(3);
+            }
+    }
+    else if (pid==0) {
+        
+        /*  child -> server
+            server receives a request   
+            reads from the pipe  */
+
+        char buff[SIZE];
+        char res[SIZE];
+        close(fd[1]); //closing writing end
+
+        //reading from pipe
+        ret = read(fd[0],buff,SIZE);
+        if (ret==0) {
+            write(STDOUT_FILENO,"No input!\n",10);
+        }
+        else if (ret == -1) {
+            perror("Didn't read from pipe!");
+            //waitpid(getppid(),NULL,0);
+            exit(4);
+        }
+        token=NULL;
+        //first token
+        token=strtok(buff," ");
+
+        //RUN
+        if (strcmp(token,"run")==0) {
+            token=strtok(NULL," ");
+            run(token);
+        }
+        //ADDITION
+        else if (strcmp(token,"add")==0){
+            token=strtok(NULL," ");
+            result= add(token);
+            ret = sprintf(res, "Result: %.2f \n", result);
+	        write(STDOUT_FILENO, res, ret);
+        }
+        //SUBTRACTION
+        else if (strcmp(token,"sub")==0){
+            token=strtok(NULL," ");
+            result= subtract(token);
+            ret = sprintf(res, "Result: %.2f \n", result);
+	        write(STDOUT_FILENO, res, ret);
+        }
+        //MULTIPLICATION
+        else if (strcmp(token,"mul")==0){
+            token=strtok(NULL," ");
+            result= multiply(token);
+            ret = sprintf(res, "Result: %.2f \n", result);
+	        write(STDOUT_FILENO, res, ret);
+        }
+        //DIVISION
+        else if (strcmp(token,"div")==0){
+            token=strtok(NULL," ");
+            result= divide(token);
+            ret = sprintf(res, "Result: %.2f \n", result);
+	        write(STDOUT_FILENO, res, ret);
+        }
+        //EXIT
+        else if (strcmp(token,"exit")==0){
+            write(STDOUT_FILENO,"Successful termination!\n",sizeof("Successful termination!\n"));
+            exit(0);
+        }
+        //INVALID STATEMENT
+        else {
+            write(STDOUT_FILENO,"Invalid command -- Exiting!\n",sizeof("Invalid command -- Exiting!\n"));
+            exit(1);
+        }
+    }    
+}
