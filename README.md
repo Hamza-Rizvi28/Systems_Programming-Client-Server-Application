@@ -1,6 +1,6 @@
 # Systems_Programming-Client-Server-Application
 
-##Overview:
+## Overview:
 
 In this project, I created a client server shell. The client requests server to run processes and can also give a list of numbers on which a specific mathematical operation can be performed like addition, subtraction, multiplication and division. The server then returns the result to the client.
 
@@ -8,7 +8,7 @@ The Inter-process communication is achieved through the use of sockets.
 
 While compiling server, user needs to give a port number as a command line argument. And while compiling client, user needs to give an IP address and a port number respectively as command line arguments. Once the client program executes, it waits for the user to give an input. If the user inputs &quot;exit&quot;, the client disconnects from the server.
 
-##Example:
+## Example:
 
 Client side:
 
@@ -35,7 +35,7 @@ Valid Commands:
 - run [program\_name]
 - Space delimited
 
-##Architecture:
+## Architecture:
 
 Client side:
 
@@ -52,7 +52,7 @@ Server side:
 - After accepting a connection, forks to create a new process
 - Takes their request
 
-##Limitations:
+## Limitations:
 
 - The current project can only make connections with 5 clients.
 - Also the number of processes that a single client can open at a time is equal to thirty.
